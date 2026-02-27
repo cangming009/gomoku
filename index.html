@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>五子棋大师</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #fff;
+        }
+        .header {
+            width: 100%;
+            padding: 15px 20px;
+            background: rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo { font-size: 24px; font-weight: bold; color: #e94560; }
+        .user-info { display: flex; align-items: center; gap: 10px; }
+        .user-name { color: #ffd700; }
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .btn-primary { background: #e94560; color: white; }
+        .btn-primary:hover { background: #ff6b6b; transform: scale(1.05); }
+        .btn-secondary { background: #0f3460; color: white; border: 1px solid #e94560; }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            gap: 20px;
+        }
+        
+        /* 登录/注册表单 */
+        .auth-form {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            width: 90%;
+            max-width: 400px;
+        }
+        .auth-form h2 { text-align: center; margin-bottom: 20px; color: #e94560; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #aaa; }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: white;
+            font-size: 16px;
+        }
+        .form-group input:focus { outline: none; border-color: #e94560; }
+        .auth-form .btn { width: 100%; margin-top: 10px; }
+        .switch-auth { text-align: center; margin-top: 15px; color: #aaa; }
+        .switch-auth a { color: #e94560; cursor: pointer; text-decoration: underline; }
+        
+        /* 游戏菜单 */
+        .menu { display: none; flex-direction: column; align-items: center; gap: 20px; }
+        .menu.show { display: flex; }
+        .menu h1 { font-size: 36px; color: #e94560; text-shadow: 0 0 20px rgba(233,69,96,0.5); }
+        .menu-stats {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        .stat-item { margin: 10px 0; font-size: 18px; }
+        .stat-value { color: #ffd700; font-weight: bold; }
+        .difficulty-select {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .diff-btn {
+            padding: 15px 40px;
+            font-size: 18px;
+            border: 2px solid #e94560;
+            border-radius: 25px;
+            background: transparent;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .diff-btn:hover, .diff-btn.active {
+            background: #e94560;
+            transform: scale(1.1);
+        }
+        
+        /* 游戏区域 */
+        .game-area { display: none; flex-direction: column; align-items: center; gap: 15px; }
+        .game-area.show { display: flex; }
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 500px;
+            padding: 10px 20px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+        }
+        .player-turn { display: flex; align-items: center; gap: 10px; }
+        .stone-icon { width: 24px; height: 24px; border-radius: 50%; }
+        .stone-black { background: #000; border: 2px solid #333; }
+        .stone-white { background: #fff; border: 2px solid #ccc; }
+        
+        .board {
+            display: grid;
+            grid-template-columns: repeat(15, 1fr);
+            gap: 0;
+            background: #deb887;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .cell {
+            width: 30px;
+            height: 30px;
+            background: transparent;
+            position: relative;
+            cursor: pointer;
+        }
+        .cell::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #8b4513;
+        }
+        .cell::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: #8b4513;
+        }
+        .cell .stone {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+        }
+        .cell .stone.black { background: radial-gradient(circle at 30% 30%, #444, #000); }
+        .cell .stone.white { background: radial-gradient(circle at 30% 30%, #fff, #ddd); }
+        .cell .stone.last { box-shadow: 0 0 10px 3px #ffd700; }
+        .cell .stone.win { box-shadow: 0 0 15px 5px #00ff00; }
+        
+        .game-controls { display: flex; gap: 15px; margin-top: 15px; }
+        
+        /* 排行榜 */
+        .leaderboard {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+        }
+        .leaderboard h3 { text-align: center; color: #ffd700; margin-bottom: 15px; }
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .leaderboard-table th, .leaderboard-table td {
+            padding: 10px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .leaderboard-table th { color: #e94560; }
+        .rank-1 { color: #ffd700; }
+        .rank-2 { color: #c0c0c0; }
+        .rank-3 { color: #cd7f32; }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal.show { display: flex; }
+        .modal-content {
+            background: #1a1a2e;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            border: 2px solid #e94560;
+        }
+        .modal-content h2 { color: #ffd700; margin-bottom: 20px; }
+        .modal-content p { font-size: 24px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">♟️ 五子棋大师</div>
+        <div class="user-info" id="userInfo">
+            <button class="btn btn-primary" onclick="showLogin()">登录</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- 登录表单 -->
+        <div class="auth-form" id="loginForm">
+            <h2>登录</h2>
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="loginUsername" placeholder="请输入用户名">
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="loginPassword" placeholder="请输入密码">
+            </div>
+            <button class="btn btn-primary" onclick="login()">登录</button>
+            <div class="switch-auth">
+                还没有账号？<a onclick="showRegister()">立即注册</a>
+            </div>
+        </div>
+        
+        <!-- 注册表单 -->
+        <div class="auth-form" id="registerForm" style="display:none;">
+            <h2>注册</h2>
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="regUsername" placeholder="请输入用户名">
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="regPassword" placeholder="请输入密码">
+            </div>
+            <button class="btn btn-primary" onclick="register()">注册</button>
+            <div class="switch-auth">
+                已有账号？<a onclick="showLogin()">立即登录</a>
+            </div>
+        </div>
+        
+        <!-- 游戏菜单 -->
+        <div class="menu" id="gameMenu">
+            <h1>♟️ 五子棋大师</h1>
+            <div class="menu-stats">
+                <div class="stat-item">总对局: <span class="stat-value" id="totalGames">0</span></div>
+                <div class="stat-item">胜利: <span class="stat-value" id="totalWins">0</span></div>
+                <div class="stat-item">胜率: <span class="stat-value" id="winRate">0%</span></div>
+            </div>
+            <p style="color:#aaa;">选择难度</p>
+            <div class="difficulty-select">
+                <button class="diff-btn active" onclick="setDifficulty('easy')">简单</button>
+                <button class="diff-btn" onclick="setDifficulty('medium')">中等</button>
+            </div>
+            <button class="btn btn-primary" style="font-size:20px;padding:15px 50px;" onclick="startGame()">开始游戏</button>
+            
+            <div class="leaderboard">
+                <h3>🏆 排行榜</h3>
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>排名</th>
+                            <th>玩家</th>
+                            <th>胜率</th>
+                            <th>胜场</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- 游戏区域 -->
+        <div class="game-area" id="gameArea">
+            <div class="game-info">
+                <div class="player-turn">
+                    <div class="stone-icon stone-black"></div>
+                    <span id="blackPlayer">你 (黑方)</span>
+                </div>
+                <div>VS</div>
+                <div class="player-turn">
+                    <span id="whitePlayer">AI (白方)</span>
+                    <div class="stone-icon stone-white"></div>
+                </div>
+            </div>
+            <div class="board" id="board"></div>
+            <div class="game-controls">
+                <button class="btn btn-secondary" onclick="backToMenu()">返回菜单</button>
+                <button class="btn btn-primary" onclick="restartGame()">重新开始</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 游戏结束弹窗 -->
+    <div class="modal" id="gameOverModal">
+        <div class="modal-content">
+            <h2 id="gameOverTitle">游戏结束</h2>
+            <p id="gameOverMessage"></p>
+            <button class="btn btn-primary" onclick="closeModal()">确定</button>
+        </div>
+    </div>
+
+    <script>
+        // 游戏状态
+        let currentUser = null;
+        let currentDifficulty = 'easy';
+        let board = [];
+        let currentPlayer = 1; // 1: 黑方(玩家), 2: 白方(AI)
+        let gameOver = false;
+        let lastMove = null;
+        
+        // 用户数据
+        let users = JSON.parse(localStorage.getItem('gomokuUsers')) || {};
+        let currentUserData = null;
+        
+        // 排行榜
+        let leaderboard = JSON.parse(localStorage.getItem('gomokuLeaderboard')) || [];
+        
+        // 初始化
+        function init() {
+            checkLogin();
+            createBoard();
+            updateLeaderboard();
+        }
+        
+        // 检查登录状态
+        function checkLogin() {
+            const savedUser = localStorage.getItem('gomokuCurrentUser');
+            if (savedUser) {
+                currentUser = savedUser;
+                currentUserData = users[savedUser];
+                showMenu();
+            }
+        }
+        
+        // 显示登录表单
+        function showLogin() {
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('gameMenu').classList.remove('show');
+        }
+        
+        // 显示注册表单
+        function showRegister() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'block';
+        }
+        
+        // 登录
+        function login() {
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            
+            if (!username || !password) {
+                alert('请输入用户名和密码');
+                return;
+            }
+            
+            if (!users[username] || users[username].password !== password) {
+                alert('用户名或密码错误');
+                return;
+            }
+            
+            currentUser = username;
+            currentUserData = users[username];
+            localStorage.setItem('gomokuCurrentUser', username);
+            showMenu();
+        }
+        
+        // 注册
+        function register() {
+            const username = document.getElementById('regUsername').value.trim();
+            const password = document.getElementById('regPassword').value.trim();
+            
+            if (!username || !password) {
+                alert('请输入用户名和密码');
+                return;
+            }
+            
+            if (users[username]) {
+                alert('用户名已存在');
+                return;
+            }
+            
+            users[username] = {
+                password: password,
+                totalGames: 0,
+                wins: 0,
+                losses: 0
+            };
+            localStorage.setItem('gomokuUsers', JSON.stringify(users));
+            
+            currentUser = username;
+            currentUserData = users[username];
+            localStorage.setItem('gomokuCurrentUser', username);
+            showMenu();
+        }
+        
+        // 登出
+        function logout() {
+            currentUser = null;
+            currentUserData = null;
+            localStorage.removeItem('gomokuCurrentUser');
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('gameMenu').classList.remove('show');
+            document.getElementById('userInfo').innerHTML = '<button class="btn btn-primary" onclick="showLogin()">登录</button>';
+        }
+        
+        // 显示游戏菜单
+        function showMenu() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('gameMenu').classList.add('show');
+            
+            if (currentUserData) {
+                document.getElementById('userInfo').innerHTML = `
+                    <span class="user-name">${currentUser}</span>
+                    <button class="btn btn-secondary" onclick="logout()">登出</button>
+                `;
+                document.getElementById('totalGames').textContent = currentUserData.totalGames;
+                document.getElementById('totalWins').textContent = currentUserData.wins;
+                const rate = currentUserData.totalGames > 0 ? Math.round(currentUserData.wins / currentUserData.totalGames * 100) : 0;
+                document.getElementById('winRate').textContent = rate + '%';
+            }
+            updateLeaderboard();
+        }
+        
+        // 设置难度
+        function setDifficulty(diff) {
+            currentDifficulty = diff;
+            document.querySelectorAll('.diff-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+        
+        // 创建棋盘
+        function createBoard() {
+            const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
+            board = [];
+            
+            for (let i = 0; i < 15; i++) {
+                board[i] = [];
+                for (let j = 0; j < 15; j++) {
+                    board[i][j] = 0;
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = i;
+                    cell.dataset.col = j;
+                    cell.onclick = () => handleClick(i, j);
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+        
+        // 开始游戏
+        function startGame() {
+            if (!currentUser) {
+                alert('请先登录');
+                showLogin();
+                return;
+            }
+            
+            document.getElementById('gameMenu').classList.remove('show');
+            document.getElementById('gameArea').classList.add('show');
+            
+            createBoard();
+            currentPlayer = 1;
+            gameOver = false;
+            lastMove = null;
+        }
+        
+        // 处理点击
+        function handleClick(row, col) {
+            if (gameOver || currentPlayer !== 1) return;
+            if (board[row][col] !== 0) return;
+            
+            // 落子
+            board[row][col] = 1;
+            lastMove = { row, col };
+            updateBoard();
+            
+            // 检查胜利
+            if (checkWin(row, col, 1)) {
+                endGame(true);
+                return;
+            }
+            
+            // 检查平局
+            if (isBoardFull()) {
+                endGame(null);
+                return;
+            }
+            
+            // AI落子
+            currentPlayer = 2;
+            setTimeout(aiMove, 500);
+        }
+        
+        // 更新棋盘显示
+        function updateBoard() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                const row = parseInt(cell.dataset.row);
+                const col = parseInt(cell.dataset.col);
+                
+                // 清除之前的棋子
+                cell.innerHTML = '';
+                
+                if (board[row][col] !== 0) {
+                    const stone = document.createElement('div');
+                    stone.className = 'stone ' + (board[row][col] === 1 ? 'black' : 'white');
+                    
+                    if (lastMove && lastMove.row === row && lastMove.col === col) {
+                        stone.classList.add('last');
+                    }
+                    
+                    cell.appendChild(stone);
+                }
+            });
+        }
+        
+        // AI落子
+        function aiMove() {
+            if (gameOver) return;
+            
+            let move;
+            if (currentDifficulty === 'easy') {
+                move = randomAI();
+            } else {
+                move = smartAI();
+            }
+            
+            if (move) {
+                board[move.row][move.col] = 2;
+                lastMove = move;
+                updateBoard();
+                
+                if (checkWin(move.row, move.col, 2)) {
+                    endGame(false);
+                    return;
+                }
+                
+                if (isBoardFull()) {
+                    endGame(null);
+                    return;
+                }
+            }
+            
+            currentPlayer = 1;
+        }
+        
+        // 随机AI (简单难度)
+        function randomAI() {
+            const emptyCells = [];
+            for (let i = 0; i < 15; i++) {
+                for (let j = 0; j < 15; j++) {
+                    if (board[i][j] === 0) {
+                        emptyCells.push({ row: i, col: j });
+                    }
+                }
+            }
+            
+            if (emptyCells.length === 0) return null;
+            
+            // 优先选择靠近已有棋子的位置
+            const nearCells = emptyCells.filter(c => {
+                for (let di = -2; di <= 2; di++) {
+                    for (let dj = -2; dj <= 2; dj++) {
+                        const ni = c.row + di;
+                        const nj = c.col + dj;
+                        if (ni >= 0 && ni < 15 && nj >= 0 && nj < 15 && board[ni][nj] !== 0) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            });
+            
+            const cells = nearCells.length > 0 ? nearCells : emptyCells;
+            return cells[Math.floor(Math.random() * cells.length)];
+        }
+        
+        // 智能AI (中等难度)
+        function smartAI() {
+            // 1. 检查是否能赢
+            for (let i = 0; i < 15; i++) {
+                for (let j = 0; j < 15; j++) {
+                    if (board[i][j] === 0) {
+                        board[i][j] = 2;
+                        if (checkWin(i, j, 2)) {
+                            board[i][j] = 0;
+                            return { row: i, col: j };
+                        }
+                        board[i][j] = 0;
+                    }
+                }
+            }
+            
+            // 2. 检查是否需要防守(玩家即将赢)
+            for (let i = 0; i < 15; i++) {
+                for (let j = 0; j < 15; j++) {
+                    if (board[i][j] === 0) {
+                        board[i][j] = 1;
+                        if (checkWin(i, j, 1)) {
+                            board[i][j] = 0;
+                            return { row: i, col: j };
+                        }
+                        board[i][j] = 0;
+                    }
+                }
+            }
+            
+            // 3. 评分选择最佳位置
+            let bestScore = -Infinity;
+            let bestMove = null;
+            
+            for (let i = 0; i < 15; i++) {
+                for (let j = 0; j < 15; j++) {
+                    if (board[i][j] === 0) {
+                        const score = evaluatePosition(i, j);
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestMove = { row: i, col: j };
+                        }
+                    }
+                }
+            }
+            
+            return bestMove || randomAI();
+        }
+        
+        // 评估位置分数
+        function evaluatePosition(row, col) {
+            let score = 0;
+            
+            // 四个方向
+            const directions = [
+                [[1, 0], [-1, 0]],  // 垂直
+                [[0, 1], [0, -1]],  // 水平
+                [[1, 1], [-1, -1]], // 对角线
+                [[1, -1], [-1, 1]]  // 反对角线
+            ];
+            
+            directions.forEach(dir => {
+                let count = 1;
+                let blocked = 0;
+                let playerCount = 0;
+                let aiCount = 0;
+                
+                dir.forEach(d => {
+                    let r = row + d[0];
+                    let c = col + d[1];
+                    while (r >= 0 && r < 15 && c >= 0 && c < 15) {
+                        if (board[r][c] === 0) break;
+                        if (board[r][c] === 1) playerCount++;
+                        else aiCount++;
+                        count++;
+                        r += d[0];
+                        c += d[1];
+                    }
+                    if (r < 0 || r >= 15 || c < 0 || c >= 15 || board[r][c] !== 0) {
+                        blocked++;
+                    }
+                });
+                
+                // 评分逻辑
+                if (aiCount >= 4) score += 100000;
+                else if (aiCount === 3 && blocked === 0) score += 10000;
+                else if (aiCount === 3) score += 1000;
+                else if (aiCount === 2 && blocked === 0) score += 1000;
+                else if (aiCount === 2) score += 100;
+                else if (playerCount >= 4) score += 50000;
+                else if (playerCount === 3 && blocked === 0) score += 5000;
+                else if (playerCount === 3) score += 500;
+                
+                // 距离中心的距离
+                const dist = Math.abs(row - 7) + Math.abs(col - 7);
+                score -= dist;
+            });
+            
+            return score;
+        }
+        
+        // 检查胜利
+        function checkWin(row, col, player) {
+            const directions = [
+                [[1, 0], [-1, 0]],  // 垂直
+                [[0, 1], [0, -1]],  // 水平
+                [[1, 1], [-1, -1]], // 对角线
+                [[1, -1], [-1, 1]]  // 反对角线
+            ];
+            
+            for (const dir of directions) {
+                let count = 1;
+                
+                dir.forEach(d => {
+                    let r = row + d[0];
+                    let c = col + d[1];
+                    while (r >= 0 && r < 15 && c >= 0 && c < 15 && board[r][c] === player) {
+                        count++;
+                        r += d[0];
+                        c += d[1];
+                    }
+                });
+                
+                if (count >= 5) return true;
+            }
+            
+            return false;
+        }
+        
+        // 检查棋盘是否满
+        function isBoardFull() {
+            for (let i = 0; i < 15; i++) {
+                for (let j = 0; j < 15; j++) {
+                    if (board[i][j] === 0) return false;
+                }
+            }
+            return true;
+        }
+        
+        // 游戏结束
+        function endGame(win) {
+            gameOver = true;
+            
+            // 更新用户数据
+            if (currentUser && currentUserData) {
+                currentUserData.totalGames++;
+                if (win) {
+                    currentUserData.wins++;
+                } else if (win === false) {
+                    currentUserData.losses++;
+                }
+                users[currentUser] = currentUserData;
+                localStorage.setItem('gomokuUsers', JSON.stringify(users));
+                
+                // 更新排行榜
+                updateLeaderboardData();
+            }
+            
+            // 显示结果
+            const modal = document.getElementById('gameOverModal');
+            const title = document.getElementById('gameOverTitle');
+            const message = document.getElementById('gameOverMessage');
+            
+            if (win === true) {
+                title.textContent = '🎉 恭喜获胜!';
+                message.textContent = '你击败了AI!';
+            } else if (win === false) {
+                title.textContent = '💀 游戏结束';
+                message.textContent = 'AI获胜，再接再厉!';
+            } else {
+                title.textContent = '🤝 平局';
+                message.textContent = '棋盘已满!';
+            }
+            
+            modal.classList.add('show');
+        }
+        
+        // 关闭弹窗
+        function closeModal() {
+            document.getElementById('gameOverModal').classList.remove('show');
+        }
+        
+        // 返回菜单
+        function backToMenu() {
+            document.getElementById('gameArea').classList.remove('show');
+            showMenu();
+        }
+        
+        // 重新开始
+        function restartGame() {
+            createBoard();
+            currentPlayer = 1;
+            gameOver = false;
+            lastMove = null;
+        }
+        
+        // 更新排行榜数据
+        function updateLeaderboardData() {
+            const entries = Object.entries(users).map(([name, data]) => ({
+                name,
+                totalGames: data.totalGames,
+                wins: data.wins,
+                winRate: data.totalGames > 0 ? Math.round(data.wins / data.totalGames * 100) : 0
+            }));
+            
+            entries.sort((a, b) => b.winRate - a.winRate || b.wins - a.wins);
+            leaderboard = entries.slice(0, 10);
+            localStorage.setItem('gomokuLeaderboard', JSON.stringify(leaderboard));
+        }
+        
+        // 更新排行榜显示
+        function updateLeaderboard() {
+            const tbody = document.getElementById('leaderboardBody');
+            tbody.innerHTML = '';
+            
+            if (leaderboard.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4">暂无数据</td></tr>';
+                return;
+            }
+            
+            leaderboard.forEach((entry, index) => {
+                const tr = document.createElement('tr');
+                const rankClass = index < 3 ? `rank-${index + 1}` : '';
+                tr.innerHTML = `
+                    <td class="${rankClass}">${index + 1}</td>
+                    <td>${entry.name}</td>
+                    <td>${entry.winRate}%</td>
+                    <td>${entry.wins}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        // 初始化
+        init();
+    </script>
+</body>
+</html>
