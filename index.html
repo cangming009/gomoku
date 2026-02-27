@@ -328,42 +328,73 @@
     </div>
 
     <script>
-        // 音效
+        // 音效 - 优化版
         let audioCtx = null;
         function playSound(type) {
             try {
                 if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 if (audioCtx.state === 'suspended') audioCtx.resume();
                 
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                
                 const now = audioCtx.currentTime;
+                
                 if (type === 'place') {
-                    osc.frequency.setValueAtTime(800, now);
-                    osc.frequency.exponentialRampToValueAtTime(400, now + 0.1);
-                    gain.gain.setValueAtTime(0.1, now);
-                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                    osc.start(now);
-                    osc.stop(now + 0.1);
+                    // 棋子落子声 - 更真实的木质声
+                    const osc1 = audioCtx.createOscillator();
+                    const osc2 = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    const filter = audioCtx.createBiquadFilter();
+                    
+                    osc1.type = 'sine';
+                    osc1.frequency.setValueAtTime(600, now);
+                    osc1.frequency.exponentialRampToValueAtTime(200, now + 0.05);
+                    
+                    osc2.type = 'triangle';
+                    osc2.frequency.setValueAtTime(300, now);
+                    osc2.frequency.exponentialRampToValueAtTime(80, now + 0.08);
+                    
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(2000, now);
+                    
+                    osc1.connect(filter);
+                    osc2.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                    
+                    osc1.start(now);
+                    osc1.stop(now + 0.12);
+                    osc2.start(now);
+                    osc2.stop(now + 0.12);
                 } else if (type === 'win') {
-                    osc.frequency.setValueAtTime(523, now);
-                    osc.frequency.setValueAtTime(659, now + 0.15);
-                    osc.frequency.setValueAtTime(784, now + 0.3);
-                    gain.gain.setValueAtTime(0.15, now);
-                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-                    osc.start(now);
-                    osc.stop(now + 0.5);
+                    // 胜利音效
+                    [523, 659, 784, 1047].forEach((freq, i) => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, now + i * 0.15);
+                        gain.gain.setValueAtTime(0.25, now + i * 0.15);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.15 + 0.3);
+                        osc.start(now + i * 0.15);
+                        osc.stop(now + i * 0.15 + 0.3);
+                    });
                 } else if (type === 'lose') {
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(300, now);
-                    osc.frequency.exponentialRampToValueAtTime(100, now + 0.4);
-                    gain.gain.setValueAtTime(0.1, now);
-                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-                    osc.start(now);
-                    osc.stop(now + 0.4);
+                    // 失败音效
+                    [400, 350, 300, 250].forEach((freq, i) => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(freq, now + i * 0.12);
+                        gain.gain.setValueAtTime(0.15, now + i * 0.12);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.12 + 0.2);
+                        osc.start(now + i * 0.12);
+                        osc.stop(now + i * 0.12 + 0.2);
+                    });
                 }
             } catch(e) {}
         }
@@ -822,33 +853,29 @@
             return false;
         }
         
-        // 困难AI - 使用Minimax算法(3层)
+        // 困难AI - 强力版 (Alpha-Beta剪枝 + 4层深度)
         function hardAI() {
-            let bestScore = -Infinity;
+            const depth = 4;
             let bestMove = null;
+            let bestScore = -Infinity;
             
-            // 获取所有空位并评估
-            const candidates = getCandidateMoves();
+            const candidates = getCandidateMoves(7, 7, 20);
             
             for (const move of candidates) {
                 board[move.row][move.col] = 2;
                 
-                // 模拟玩家最佳应对
-                let minScore = Infinity;
-                const opponentMoves = getCandidateMoves(move.row, move.col);
-                for (const oppMove of opponentMoves.slice(0,5)) {
-                    board[oppMove.row][oppMove.col] = 1;
-                    const score = evaluateBoard(2) - evaluateBoard(1) * 0.9;
-                    minScore = Math.min(minScore, score);
-                    board[oppMove.row][oppMove.col] = 0;
+                // 检查是否获胜
+                if (checkWin(move.row, move.col, 2)) {
+                    board[move.row][move.col] = 0;
+                    return move;
                 }
+                
+                const score = minimax(depth - 1, -Infinity, Infinity, false);
                 
                 board[move.row][move.col] = 0;
                 
-                if (minScore === Infinity) minScore = 0;
-                
-                if (minScore > bestScore) {
-                    bestScore = minScore;
+                if (score > bestScore) {
+                    bestScore = score;
                     bestMove = move;
                 }
             }
@@ -856,10 +883,130 @@
             return bestMove || smartAI();
         }
         
+        // Minimax算法 with Alpha-Beta剪枝
+        function minimax(depth, alpha, beta, isMaximizing) {
+            if (depth === 0) {
+                return evaluateBoardAdvanced(2) - evaluateBoardAdvanced(1);
+            }
+            
+            const candidates = getCandidateMoves(7, 7, 12);
+            
+            if (isMaximizing) {
+                let maxScore = -Infinity;
+                for (const move of candidates) {
+                    board[move.row][move.col] = 2;
+                    
+                    // 检查胜利
+                    if (checkWin(move.row, move.col, 2)) {
+                        board[move.row][move.col] = 0;
+                        return 1000000;
+                    }
+                    
+                    const score = minimax(depth - 1, alpha, beta, false);
+                    board[move.row][move.col] = 0;
+                    
+                    maxScore = Math.max(maxScore, score);
+                    alpha = Math.max(alpha, score);
+                    if (beta <= alpha) break;
+                }
+                return maxScore;
+            } else {
+                let minScore = Infinity;
+                for (const move of candidates) {
+                    board[move.row][move.col] = 1;
+                    
+                    // 检查失败
+                    if (checkWin(move.row, move.col, 1)) {
+                        board[move.row][move.col] = 0;
+                        return -1000000;
+                    }
+                    
+                    const score = minimax(depth - 1, alpha, beta, true);
+                    board[move.row][move.col] = 0;
+                    
+                    minScore = Math.min(minScore, score);
+                    beta = Math.min(beta, score);
+                    if (beta <= alpha) break;
+                }
+                return minScore;
+            }
+        }
+        
+        // 高级棋盘评估
+        function evaluateBoardAdvanced(player) {
+            let score = 0;
+            const opponent = player === 1 ? 2 : 1;
+            
+            // 评估每个我方棋子
+            for (let i = 0; i < 15; i++) {
+                for (let j = 0; j < 15; j++) {
+                    if (board[i][j] === player) {
+                        score += evaluateCellAdvanced(i, j, player);
+                    }
+                }
+            }
+            
+            return score;
+        }
+        
+        // 评估单个位置
+        function evaluateCellAdvanced(row, col, player) {
+            const directions = [
+                [[1, 0], [-1, 0]],
+                [[0, 1], [0, -1]],
+                [[1, 1], [-1, -1]],
+                [[1, -1], [-1, 1]]
+            ];
+            
+            let totalScore = 0;
+            
+            for (const dir of directions) {
+                let count = 1;
+                let openEnds = 0;
+                let blocked = 0;
+                
+                // 正向
+                let r = row + dir[0][0], c = col + dir[0][1];
+                while (r >= 0 && r < 15 && c >= 0 && c < 15 && board[r][c] === player) {
+                    count++;
+                    r += dir[0][0];
+                    c += dir[0][1];
+                }
+                if (r >= 0 && r < 15 && c >= 0 && c < 15 && board[r][c] === 0) openEnds++;
+                else if (r >= 0 && r < 15 && c >= 0 && c < 15) blocked++;
+                
+                // 反向
+                r = row + dir[1][0]; c = col + dir[1][1];
+                while (r >= 0 && r < 15 && c >= 0 && c < 15 && board[r][c] === player) {
+                    count++;
+                    r += dir[1][0];
+                    c += dir[1][1];
+                }
+                if (r >= 0 && r < 15 && c >= 0 && c < 15 && board[r][c] === 0) openEnds++;
+                else if (r >= 0 && r < 15 && c >= 0 && c < 15) blocked++;
+                
+                // 计分
+                if (count >= 5) totalScore += 100000;
+                else if (count === 4) {
+                    if (openEnds === 2) totalScore += 10000;
+                    else if (openEnds === 1) totalScore += 1000;
+                }
+                else if (count === 3) {
+                    if (openEnds === 2) totalScore += 1000;
+                    else if (openEnds === 1) totalScore += 100;
+                }
+                else if (count === 2) {
+                    if (openEnds === 2) totalScore += 100;
+                    else if (openEnds === 1) totalScore += 10;
+                }
+            }
+            
+            return totalScore;
+        }
+        
         // 获取候选落子位置
-        function getCandidateMoves(centerRow = 7, centerCol = 7) {
+        function getCandidateMoves(centerRow = 7, centerCol = 7, limit = 15) {
             const candidates = [];
-            const checked = new Set();
             
             for (let i = 0; i < 15; i++) {
                 for (let j = 0; j < 15; j++) {
@@ -880,14 +1027,15 @@
                         
                         if (hasNeighbor) {
                             const dist = Math.abs(i - centerRow) + Math.abs(j - centerCol);
-                            candidates.push({ row: i, col: j, dist });
+                            const score = evaluateCellAdvanced(i, j, 2) + evaluateCellAdvanced(i, j, 1) * 0.9;
+                            candidates.push({ row: i, col: j, dist, score: score || dist });
                         }
                     }
                 }
             }
             
-            candidates.sort((a, b) => a.dist - b.dist);
-            return candidates.slice(0, 15);
+            candidates.sort((a, b) => (b.score || b.dist) - (a.score || a.dist));
+            return candidates.slice(0, limit);
         }
         
         // 评估整个棋盘
