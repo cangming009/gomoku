@@ -323,7 +323,10 @@
         <div class="modal-content">
             <h2 id="gameOverTitle">游戏结束</h2>
             <p id="gameOverMessage"></p>
-            <button class="btn btn-primary" onclick="closeModal()">确定</button>
+            <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;">
+                <button class="btn btn-primary" onclick="closeModal()">返回菜单</button>
+                <button class="btn btn-primary" style="background:#28a745;" onclick="nextGame()">继续下一局</button>
+            </div>
         </div>
     </div>
 
@@ -853,13 +856,13 @@
             return false;
         }
         
-        // 困难AI - 强力版 (Alpha-Beta剪枝 + 4层深度)
+        // 困难AI - 终极版 (Alpha-Beta剪枝 + 5层深度)
         function hardAI() {
-            const depth = 4;
+            const depth = 5;
             let bestMove = null;
             let bestScore = -Infinity;
             
-            const candidates = getCandidateMoves(7, 7, 20);
+            const candidates = getCandidateMoves(7, 7, 25);
             
             for (const move of candidates) {
                 board[move.row][move.col] = 2;
@@ -1005,7 +1008,7 @@
         }
         
         // 获取候选落子位置
-        function getCandidateMoves(centerRow = 7, centerCol = 7, limit = 15) {
+        function getCandidateMoves(centerRow = 7, centerCol = 7, limit = 20) {
             const candidates = [];
             
             for (let i = 0; i < 15; i++) {
@@ -1103,9 +1106,19 @@
             modal.classList.add('show');
         }
         
+        // 继续下一局
+        function nextGame() {
+            document.getElementById('gameOverModal').classList.remove('show');
+            createBoard();
+            currentPlayer = 1;
+            gameOver = false;
+            lastMove = null;
+        }
+        
         // 关闭弹窗
         function closeModal() {
             document.getElementById('gameOverModal').classList.remove('show');
+            backToMenu();
         }
         
         // 返回菜单
